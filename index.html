@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DC/MD/VA West Coast Swing</title>
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Default Date Script -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const dateInput = document.getElementById("filter-date");
+            if (dateInput) {
+                const today = new Date().toISOString().slice(0, 10);
+                dateInput.value = today;
+            }
+        });
+    </script>
+
+    <!-- Google Sheets Event Fetcher -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Configuration
+            const EVENTS_URL = 'https://storage.googleapis.com/dcwcs/events.json'; // URL to events JSON
+
+            // Fetch events from Google Cloud Storage
+            fetchEvents();
+
+            // Set up filter buttons
+            setupFilters();
+
+            // Function to fetch events from remote JSON
+            function fetchEvents() {
+                fetch(EVENTS_URL)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Render events to the page
+                        renderEvents(data);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching events:', error);
+                        const cardsContainer = document.querySelector('.cards');
+                        cardsContainer.innerHTML = '<p class="no-events">Error loading events. Please try again later.</p>';
+                    });
+            }
+
+            // Render events to the page
+            function renderEvents(events) {
+                const cardsContainer = document.querySelector('.cards');
+
+                // Clear existing content
+                cardsContainer.innerHTML = '';
+
+                // Filter events as needed (e.g., by date, intro lesson status)
+                const filteredEvents = filterEvents(events);
+
+                if (filteredEvents.length === 0) {
+                    cardsContainer.innerHTML = '<p class="no-events">No events found matching your criteria.</p>';
+                    return;
+                }
+
+                // Sort events by date
+                filteredEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                // Create event cards
+                filteredEvents.forEach(event => {
+                    const card = createEventCard(event);
+                    cardsContainer.appendChild(card);
+                });
+            }
+
+            // Filter events based on current filter settings
+            function filterEvents(events) {
+                // Get current filter values
+                const activeFilter = document.querySelector('.filter-btn.active').textContent.toLowerCase();
+                const showIntroOnly = document.getElementById('filter-intro').checked;
+
+                return events.filter(event => {
+                    // Date filtering
+                    const eventDate = new Date(event.date);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+
+                    const tomorrow = new Date(today);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+
+                    const weekLater = new Date(today);
+                    weekLater.setDate(weekLater.getDate() + 7);
+
+                    // Apply filters
+                    let dateMatch = false;
+
+                    switch (activeFilter) {
+                        case 'all':
+                            dateMatch = true;
+                            break;
+                        case 'today':
+                            dateMatch = eventDate >= today && eventDate < tomorrow;
+                            break;
+                        case 'this week':
+                            dateMatch = eventDate >= today && eventDate <= weekLater;
+                            break;
+                        case 'near me':
+                            // For "Near Me" we'd need geolocation, but for now just show all
+                            dateMatch = true;
+                            break;
+                        default:
+                            dateMatch = true;
+                    }
+
+                    // Check if intro lesson filter is applied
+                    const introMatch = !showIntroOnly || (event.has_intro_lesson === 'Yes');
+
+                    return dateMatch && introMatch;
+                });
+            }
+
+            // Create an event card DOM element from event data
+            function createEventCard(event) {
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                const image = document.createElement('img');
+                image.className = 'card-img';
+                image.src = event.image_url || 'lne.jpg'; // Fallback to default image
+                image.alt = `${event.name} event image`;
+
+                const cardInfo = document.createElement('div');
+                cardInfo.className = 'card-info';
+
+                const title = document.createElement('h3');
+                title.textContent = event.name;
+
+                const address = document.createElement('p');
+                address.className = 'address';
+                address.textContent = event.location;
+
+                const date = document.createElement('p');
+                date.className = 'event-date';
+                // Format the date nicely
+                const eventDate = new Date(event.date);
+                const options = { weekday: 'long', month: 'long', day: 'numeric' };
+                date.textContent = `${eventDate.toLocaleDateString('en-US', options)}, ${event.time}`;
+
+                // Add elements to card info
+                cardInfo.appendChild(title);
+                cardInfo.appendChild(address);
+                cardInfo.appendChild(date);
+
+                // Add intro badge if event has an intro lesson
+                if (event.has_intro_lesson === 'Yes') {
+                    const introBadge = document.createElement('span');
+                    introBadge.className = 'intro-badge';
+                    introBadge.textContent = 'Intro Lesson';
+                    cardInfo.appendChild(introBadge);
+                }
+
+                // Assemble the card
+                card.appendChild(image);
+                card.appendChild(cardInfo);
+
+                return card;
+            }
+
+            // Set up filter button functionality
+            function setupFilters() {
+                const filterButtons = document.querySelectorAll('.filter-btn');
+                const introCheckbox = document.getElementById('filter-intro');
+
+                // Set up filter button clicks
+                filterButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        // Remove active class from all buttons
+                        filterButtons.forEach(btn => btn.classList.remove('active'));
+                        // Add active class to clicked button
+                        button.classList.add('active');
+                        // Refresh events
+                        fetchEvents();
+                    });
+                });
+
+                // Set up intro checkbox change
+                if (introCheckbox) {
+                    introCheckbox.addEventListener('change', () => {
+                        fetchEvents();
+                    });
+                }
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <!-- HEADER / NAVBAR (Hero included) -->
+    <header class="hero">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <!-- Home Icon using icon.png at 64x64 -->
+            <a href="index.html" class="navbar-logo">
+                <img src="icon.png" alt="Home" class="home-icon" />
+            </a>
+
+            <!-- Nav Links -->
+            <ul class="nav-links">
+                <li><a href="#socials">Socials</a></li>
+                <li><a href="#classes">Classes</a></li>
+                <li><a href="#instructors">Instructors</a></li>
+            </ul>
+        </nav>
+
+        <!-- Hero Content Over the Video -->
+        <div class="hero-content">
+            <h1>West Coast Swing in DC/MD/VA</h1>
+        </div>
+
+        <!-- Full-width Video -->
+        <video class="hero-video" autoplay muted loop>
+            <source src="hero.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <!-- Upcoming Socials and Classes Section -->
+    <section class="upcoming" id="socials">
+        <h2>Upcoming Socials &amp; Classes</h2>
+        <p class="subheading">No partner or experience necessary!</p>
+
+        <!-- Filters -->
+        <div class="filters">
+            <!-- Filter buttons in their own container -->
+            <div class="filter-buttons">
+                <button class="filter-btn active">All</button>
+                <button class="filter-btn">Today</button>
+                <button class="filter-btn">This Week</button>
+                <button class="filter-btn">Near Me</button>
+            </div>
+        </div>
+        <!-- Checkbox in its own container -->
+        <div class="filter-checkbox">
+            <input type="checkbox" id="filter-intro" name="filter-intro" />
+            <label for="filter-intro">Intro Lesson</label>
+        </div>
+
+        <!-- Dance/Event Cards -->
+        <div class="cards">
+        </div>
+    </section>
+
+    <!-- Featured Locals Section -->
+    <section class="featured-locals" id="instructors">
+        <h2>Featured Locals</h2>
+        <!-- Instagram Embeds -->
+        <div class="social-embed">
+            <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@stuckonswing/video/7410052396606344479"
+                data-video-id="7410052396606344479" style="max-width: 605px;min-width: 325px;">
+                <section> </section>
+            </blockquote>
+            <script async src="https://www.tiktok.com/embed.js"></script>
+        </div>
+        <div class="social-embed">
+            <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@stuckonswing/video/7449796004888530219"
+                data-video-id="7449796004888530219" style="max-width: 605px;min-width: 325px;">
+                <section> <a target="_blank" title="@stuckonswing"
+                        href="https://www.tiktok.com/@stuckonswing?refer=embed">@stuckonswing</a> So fun grooving with
+                    Wee in this one 🔥🔥 West Coast Swing Improv 🏆Strictly Swing DJ Battle 👁️‍🗨️@Wee Tze Yi 🎶Outside
+                    by @Bryson Tiller 📍@TAPWCS 🎥@jérome Subey <a title="dancer" target="_blank"
+                        href="https://www.tiktok.com/tag/dancer?refer=embed">#dancer</a> <a title="dancer"
+                        target="_blank" href="https://www.tiktok.com/tag/dancer?refer=embed">#dancer</a> <a title="wcs"
+                        target="_blank" href="https://www.tiktok.com/tag/wcs?refer=embed">#wcs</a> <a
+                        title="westcoastswing" target="_blank"
+                        href="https://www.tiktok.com/tag/westcoastswing?refer=embed">#westcoastswing</a> <a
+                        title="randompartner" target="_blank"
+                        href="https://www.tiktok.com/tag/randompartner?refer=embed">#randompartner</a> <a
+                        title="partnerdance" target="_blank"
+                        href="https://www.tiktok.com/tag/partnerdance?refer=embed">#partnerdance</a> <a
+                        title="dancelife" target="_blank"
+                        href="https://www.tiktok.com/tag/dancelife?refer=embed">#dancelife</a> <a title="improv"
+                        target="_blank" href="https://www.tiktok.com/tag/improv?refer=embed">#improv</a> <a
+                        title="dancecompetition" target="_blank"
+                        href="https://www.tiktok.com/tag/dancecompetition?refer=embed">#dancecompetition</a> <a
+                        title="fyp" target="_blank" href="https://www.tiktok.com/tag/fyp?refer=embed">#fyp</a> <a
+                        title="foryoupage" target="_blank"
+                        href="https://www.tiktok.com/tag/foryoupage?refer=embed">#foryoupage</a> <a target="_blank"
+                        title="♬ original sound - Markus &#38; Tren"
+                        href="https://www.tiktok.com/music/original-sound-7449795943152798510?refer=embed">♬ original
+                        sound - Markus &#38; Tren</a> </section>
+            </blockquote>
+            <script async src="https://www.tiktok.com/embed.js"></script>
+        </div>
+        <div class="social-embed">
+            <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@aaronnunodances/video/7475154155712056619"
+                data-video-id="7475154155712056619" style="max-width: 605px;min-width: 325px;">
+                <section> <a target="_blank" title="@aaronnunodances"
+                        href="https://www.tiktok.com/@aaronnunodances?refer=embed">@aaronnunodances</a> My first allstar
+                    Finals at Rose City Swing 2025! With Lara Deni! <a title="improv" target="_blank"
+                        href="https://www.tiktok.com/tag/improv?refer=embed">#improv</a> <a title="fyp" target="_blank"
+                        href="https://www.tiktok.com/tag/fyp?refer=embed">#fyp</a> <a title="westcoastswing"
+                        target="_blank" href="https://www.tiktok.com/tag/westcoastswing?refer=embed">#westcoastswing</a>
+                    <a title="wcs" target="_blank" href="https://www.tiktok.com/tag/wcs?refer=embed">#wcs</a> <a
+                        title="allstar" target="_blank"
+                        href="https://www.tiktok.com/tag/allstar?refer=embed">#allstar</a> <a title="finals"
+                        target="_blank" href="https://www.tiktok.com/tag/finals?refer=embed">#finals</a> <a
+                        title="jacknjill" target="_blank"
+                        href="https://www.tiktok.com/tag/jacknjill?refer=embed">#jacknjill</a> <a title="dancing"
+                        target="_blank" href="https://www.tiktok.com/tag/dancing?refer=embed">#dancing</a> <a
+                        target="_blank" title="♬ Give Me Everything (feat. Nayer) - Pitbull &#38; Afrojack &#38; Ne-Yo"
+                        href="https://www.tiktok.com/music/Give-Me-Everything-feat-Nayer-6696412869715560450?refer=embed">♬
+                        Give Me Everything (feat. Nayer) - Pitbull &#38; Afrojack &#38; Ne-Yo</a>
+                </section>
+            </blockquote>
+            <script async src="https://www.tiktok.com/embed.js"></script>
+        </div>
+        <div class="social-embed">
+            <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@freestyle.dance.l/video/7371486861417614638"
+                data-video-id="7371486861417614638" style="max-width: 605px;min-width: 325px;">
+                <section> <a target="_blank" title="@freestyle.dance.l"
+                        href="https://www.tiktok.com/@freestyle.dance.l?refer=embed">@freestyle.dance.l</a> Awesome
+                    impro dance to Rollinscott &#38; Lemery Rolinscott <a title="westcoastswing" target="_blank"
+                        href="https://www.tiktok.com/tag/westcoastswing?refer=embed">#WestCoastSwing</a> <a title="wcs"
+                        target="_blank" href="https://www.tiktok.com/tag/wcs?refer=embed">#WCS</a> <a title="dance"
+                        target="_blank" href="https://www.tiktok.com/tag/dance?refer=embed">#dance</a> <a
+                        title="swingdance" target="_blank"
+                        href="https://www.tiktok.com/tag/swingdance?refer=embed">#swingdance</a> <a title="dancelife"
+                        target="_blank" href="https://www.tiktok.com/tag/dancelife?refer=embed">#dancelife</a> <a
+                        title="dancing" target="_blank"
+                        href="https://www.tiktok.com/tag/dancing?refer=embed">#dancing</a> <a title="dancer"
+                        target="_blank" href="https://www.tiktok.com/tag/dancer?refer=embed">#dancer</a> <a
+                        title="wcswing" target="_blank"
+                        href="https://www.tiktok.com/tag/wcswing?refer=embed">#wcswing</a> <a title="swing"
+                        target="_blank" href="https://www.tiktok.com/tag/swing?refer=embed">#swing</a> <a
+                        title="bachata" target="_blank"
+                        href="https://www.tiktok.com/tag/bachata?refer=embed">#bachata</a> <a target="_blank"
+                        title="♬ original sound - Freestyle Dance"
+                        href="https://www.tiktok.com/music/original-sound-7371486899350915882?refer=embed">♬ original
+                        sound - Freestyle Dance</a> </section>
+            </blockquote>
+            <script async src="https://www.tiktok.com/embed.js"></script>
+        </div>
+        <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@kenandbryn/video/7440505060741614890"
+            data-video-id="7440505060741614890" style="max-width: 605px;min-width: 325px;">
+            <section> <a target="_blank" title="@kenandbryn"
+                    href="https://www.tiktok.com/@kenandbryn?refer=embed">@kenandbryn</a> It&#39;s the 🎣 for me 😂
+                Improv West Coast Swing 📍 - D.C. Swing eXperience (DCSX) - Herndon, VA 🎶 - Imma Go x Taio Cruz 🕺 - KP
+                Rutland 💃🏻 - @Alexis Garrish 🎥 - @Dance Jam Productions <a title="westcoastswing" target="_blank"
+                    href="https://www.tiktok.com/tag/westcoastswing?refer=embed">#westcoastswing</a> <a
+                    title="westcoast" target="_blank"
+                    href="https://www.tiktok.com/tag/westcoast?refer=embed">#westcoast</a> <a title="wcs"
+                    target="_blank" href="https://www.tiktok.com/tag/wcs?refer=embed">#wcs</a> <a title="wcswing"
+                    target="_blank" href="https://www.tiktok.com/tag/wcswing?refer=embed">#wcswing</a> <a
+                    title="swingdance" target="_blank"
+                    href="https://www.tiktok.com/tag/swingdance?refer=embed">#swingdance</a> <a title="improvdance"
+                    target="_blank" href="https://www.tiktok.com/tag/improvdance?refer=embed">#improvdance</a> <a
+                    title="partnerdance" target="_blank"
+                    href="https://www.tiktok.com/tag/partnerdance?refer=embed">#partnerdance</a> <a title="fyp"
+                    target="_blank" href="https://www.tiktok.com/tag/fyp?refer=embed">#fyp</a> <a title="foryou"
+                    target="_blank" href="https://www.tiktok.com/tag/foryou?refer=embed">#foryou</a> <a
+                    title="foryoupage" target="_blank"
+                    href="https://www.tiktok.com/tag/foryoupage?refer=embed">#foryoupage</a> <a title="improv"
+                    target="_blank" href="https://www.tiktok.com/tag/improv?refer=embed">#improv</a> <a title="swing"
+                    target="_blank" href="https://www.tiktok.com/tag/swing?refer=embed">#swing</a> <a
+                    title="randompartnerrandomsong" target="_blank"
+                    href="https://www.tiktok.com/tag/randompartnerrandomsong?refer=embed">#randompartnerrandomsong</a>
+                <a title="hitthefloor" target="_blank"
+                    href="https://www.tiktok.com/tag/hitthefloor?refer=embed">#hitthefloor</a> <a title="taiocruz"
+                    target="_blank" href="https://www.tiktok.com/tag/taiocruz?refer=embed">#taiocruz</a> <a title="dcsx"
+                    target="_blank" href="https://www.tiktok.com/tag/dcsx?refer=embed">#DCSX</a> <a
+                    title="dancersoftiktok" target="_blank"
+                    href="https://www.tiktok.com/tag/dancersoftiktok?refer=embed">#dancersoftiktok</a> <a
+                    target="_blank" title="♬ original sound - Ken &#38; Bryn"
+                    href="https://www.tiktok.com/music/original-sound-7440505115624082222?refer=embed">♬ original sound
+                    - Ken &#38; Bryn</a>
+            </section>
+        </blockquote>
+        <script async src="https://www.tiktok.com/embed.js"></script>
+
+
+    </section>
+</body>
+
+</html>
