@@ -1,5 +1,5 @@
 name: Write Website to GCS
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+run-name: Push to GCS
 on: [push]
 jobs:
   job_id:
