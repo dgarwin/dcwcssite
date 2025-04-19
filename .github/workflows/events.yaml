@@ -1,0 +1,21 @@
+name: Update events!
+run-name: Update events
+on: [push]
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        workload_identity_provider: 'projects/292324331506/locations/global/workloadIdentityPools/github/providers/github-profider'
+        service_account: 'github@latenightearly.iam.gserviceaccount.com'
+
+    - id: 'update-events'
+      name: 'Notify API about deployment'
+      run: |
+         curl -X POST https://dcwcssite-events-generator-292324331506.us-central1.run.app -H "Authorization: bearer $(gcloud auth print-identity-token)" -H "Content-Type: application/json"
