@@ -2,7 +2,8 @@ name: Write Website to GCS
 run-name: Push to GCS
 on: [push]
 jobs:
-  job_id:
+  publish:
+    runs-on: ubuntu-latest
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -14,7 +15,7 @@ jobs:
     - id: 'auth'
       uses: 'google-github-actions/auth@v2'
       with:
-        workload_identity_provider: 'iam.googleapis.com/projects/292324331506/locations/global/workloadIdentityPools/github/providers/github-profider'
+        workload_identity_provider: 'projects/292324331506/locations/global/workloadIdentityPools/github/providers/github-profider'
         service_account: 'github@latenightearly.iam.gserviceaccount.com'
 
     - id: 'upload-folder'
@@ -22,3 +23,4 @@ jobs:
       with:
         path: 'public'
         destination: 'dcwcs'
+        parent: false
