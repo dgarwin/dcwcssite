@@ -9,7 +9,7 @@ COPY event_updater/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy code
-COPY event_updater/ ./
+COPY event_updater/ /app
 
 # Serve on port 8080 by default
 ENV PORT=8080
